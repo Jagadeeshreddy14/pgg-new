@@ -1,12 +1,12 @@
 {
-  "projectId": "gen-lang-client-0736771934",
-  "appId": "1:408848650991:web:bbfe020f4ad6d56927011a",
-  "apiKey": "AIzaSyDMqv5al94d8olCMuzfUEh_Mvatgch7d3I",
-  "authDomain": "gen-lang-client-0736771934.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-43c20ede-03b6-4585-9cb9-19f7171977b7",
-  "storageBucket": "gen-lang-client-0736771934.firebasestorage.app",
-  "messagingSenderId": "408848650991",
+  "projectId": "srisrinivasa-pg-hostel",
+  "appId": "1:191490787861:web:5ea935381adbbcb6c09c1c",
+  "apiKey": "AIzaSyDjQKgUc_kCrhGSrW3KMdFMY0OQF3Qkly0",
+  "authDomain": "srisrinivasa-pg-hostel.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "srisrinivasa-pg-hostel.firebasestorage.app",
+  "messagingSenderId": "191490787861",
   "measurementId": "",
-  "oAuthClientId": "408848650991-6lmptkgf6c9q38pknr07ga54rnn73fkv.apps.googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

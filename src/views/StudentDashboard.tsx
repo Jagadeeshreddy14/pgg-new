@@ -29,7 +29,17 @@ import {
   Droplet,
   Zap,
   Mail,
-  Phone
+  Phone,
+  CheckCircle,
+  XCircle,
+  Link,
+  Unlink,
+  RefreshCw,
+  FileCheck,
+  Lock,
+  Shield,
+  Eye,
+  Trash2
 } from "lucide-react";
 import api from "../lib/api";
 import { User as UserType, Room, Bed as BedType, Booking, RentInvoice, Complaint, Notice, MessMenu, LeaveRequest, VisitorRequest, HostelSettings } from "../types";
@@ -44,7 +54,7 @@ interface StudentDashboardProps {
 
 export default function StudentDashboard({ user: initialUser, onLogout }: StudentDashboardProps) {
   const [user, setUser] = useState<UserType>(initialUser);
-  const [activeTab, setActiveTab] = useState<"home" | "rooms" | "rent" | "complaints" | "mess" | "requests" | "profile" | "hostel-form">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "rooms" | "rent" | "complaints" | "mess" | "requests" | "documents" | "profile" | "hostel-form">("home");
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [invoices, setInvoices] = useState<RentInvoice[]>([]);
@@ -62,6 +72,15 @@ export default function StudentDashboard({ user: initialUser, onLogout }: Studen
   const [docAadhaar, setDocAadhaar] = useState("");
   const [docPan, setDocPan] = useState("");
   const [docCollege, setDocCollege] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      if (user.aadhaar) setDocAadhaar(user.aadhaar);
+      if (user.pan) setDocPan(user.pan);
+      if (user.collegeId) setDocCollege(user.collegeId);
+    }
+  }, [user]);
+
   const [prefSleepSchedule, setPrefSleepSchedule] = useState<"early-bird" | "night-owl" | "no-preference">("no-preference");
   const [prefStudyHabits, setPrefStudyHabits] = useState<"silent" | "group" | "no-preference">("no-preference");
   const [prefRoommate, setPrefRoommate] = useState("");
@@ -153,6 +172,25 @@ export default function StudentDashboard({ user: initialUser, onLogout }: Studen
   };
 
   // Booking submit handler
+  const handleUploadDocuments = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const updateData = {
+        aadhaar: docAadhaar,
+        pan: docPan,
+        collegeId: docCollege,
+        documentSource: "Manual",
+        documentStatus: "pending"
+      };
+      await api.put(`/users/${user.id}`, updateData);
+      setUser({ ...user, ...updateData } as UserType);
+      showToast("Documents uploaded for verification.");
+      fetchInitialData();
+    } catch (err: any) {
+      showToast(err.message, true);
+    }
+  };
+
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRoom || !bookingDate) {
@@ -445,7 +483,16 @@ export default function StudentDashboard({ user: initialUser, onLogout }: Studen
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>Admission Form</span>
+            <span>Hostel Form</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("documents")}
+            className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+              activeTab === "documents" ? "bg-amber-500 text-slate-950 font-bold" : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>My Documents</span>
           </button>
           <button
             onClick={() => setActiveTab("profile")}
@@ -1717,6 +1764,95 @@ export default function StudentDashboard({ user: initialUser, onLogout }: Studen
             onFormSubmit={(updatedUser) => setUser(updatedUser)}
             showToast={(msg, isError) => triggerToast(msg, isError ? "error" : "success")}
           />
+        )}
+
+        {/* TAB 6.75: DOCUMENTS UPLOAD */}
+        {/* TAB 6.75: DOCUMENTS UPLOAD */}
+        {activeTab === "documents" && (
+          <div className="space-y-6">
+            <div>
+              <h1 className="font-display font-bold text-2xl text-white">My Documents</h1>
+              <p className="text-sm text-slate-400 mt-1">Manage your verification documents via DigiLocker or manual upload.</p>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl shadow-2xl">
+              <div className="mb-6 flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center">
+                    <Upload className="w-5 h-5 mr-2 text-slate-400" />
+                    Upload Documents
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">Please provide links to your identity documents for verification.</p>
+                </div>
+                {user.documentStatus === "approved" && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 flex items-center">
+                    <CheckCircle className="w-3.5 h-3.5 mr-1" /> Approved
+                  </span>
+                )}
+                {user.documentStatus === "rejected" && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 flex items-center">
+                    <X className="w-3.5 h-3.5 mr-1" /> Rejected
+                  </span>
+                )}
+                {user.documentStatus === "pending" && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 flex items-center">
+                    <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> Pending Review
+                  </span>
+                )}
+              </div>
+
+              {user.documentStatus === "rejected" && user.documentNotes && (
+                <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                  <h4 className="text-sm font-bold text-rose-400 mb-1">Admin Notes:</h4>
+                  <p className="text-xs text-rose-300">{user.documentNotes}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleUploadDocuments} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Aadhaar Card Link</label>
+                  <input
+                    type="text"
+                    value={docAadhaar}
+                    onChange={(e) => setDocAadhaar(e.target.value)}
+                    placeholder="https://link-to-aadhaar.pdf"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">PAN Card Link</label>
+                  <input
+                    type="text"
+                    value={docPan}
+                    onChange={(e) => setDocPan(e.target.value)}
+                    placeholder="https://link-to-pan.pdf"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">College ID / Offer Letter</label>
+                  <input
+                    type="text"
+                    value={docCollege}
+                    onChange={(e) => setDocCollege(e.target.value)}
+                    placeholder="https://link-to-id.pdf"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-slate-800 flex justify-end">
+                  <button 
+                    type="submit" 
+                    className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-colors flex items-center shadow-lg shadow-amber-500/20"
+                  >
+                    Submit for Verification
+                  </button>
+                </div>
+              </form>
+            </div>
+
+
+          </div>
         )}
 
         {/* TAB 7: PROFILE */}

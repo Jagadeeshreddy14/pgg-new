@@ -32,7 +32,12 @@ import {
   Sparkles,
   UserPlus,
   Megaphone,
-  ChevronDown
+  Mail,
+  Phone,
+  ChevronDown,
+  ChevronUp,
+  Lock,
+  ShieldAlert
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -60,7 +65,7 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "rooms" | "students" | "bookings" | "payments" | "notices" | "mess" | "settings">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "rooms" | "students" | "documents" | "bookings" | "payments" | "notices" | "mess" | "settings">("dashboard");
   const [stats, setStats] = useState<any>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [beds, setBeds] = useState<BedType[]>([]);
@@ -79,6 +84,9 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   // Search/Filters
   const [roomFilter, setRoomFilter] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
+  const [docSearch, setDocSearch] = useState("");
+  const [docFilter, setDocFilter] = useState("all");
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
 
   // Room Form State
   const [showRoomModal, setShowRoomModal] = useState(false);
@@ -284,6 +292,16 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     try {
       await api.put(`/students/${studentId}/block`, { isBlocked: !currentBlocked });
       showToast(`Student credentials ${!currentBlocked ? "SUSPENDED" : "RE-ACTIVATED"}.`);
+      fetchAdminData();
+    } catch (err: any) {
+      showToast(err.message, true);
+    }
+  };
+
+  const handleVerifyImportedDocument = async (studentId: string, docId: string, status: "verified" | "rejected" | "manual_review") => {
+    try {
+      await api.put(`/users/${studentId}/documents/${docId}/verify`, { status });
+      showToast(`Document marked as ${status.toUpperCase()}.`);
       fetchAdminData();
     } catch (err: any) {
       showToast(err.message, true);
@@ -538,6 +556,15 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           >
             <User className="w-4 h-4" />
             <span>Resident Directory</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("documents")}
+            className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+              activeTab === "documents" ? "bg-amber-500 text-slate-950 font-bold" : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Document Verify</span>
           </button>
           <button
             onClick={() => setActiveTab("bookings")}
@@ -1094,6 +1121,167 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     </div>
                   </div>
                 ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3.5: DOCUMENT VERIFICATION */}
+        {activeTab === "documents" && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="font-display font-bold text-2xl text-white">Student Document Verification</h1>
+                <p className="text-sm text-slate-400 mt-1">Review and securely verify manually uploaded documents.</p>
+              </div>
+              <div className="flex items-center space-x-3 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Search by student name..."
+                    value={docSearch}
+                    onChange={(e) => setDocSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700/50 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-amber-500/50 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-300">
+                  <thead className="text-xs uppercase bg-slate-800/50 text-slate-400 font-semibold">
+                    <tr>
+                      <th className="px-6 py-4">Student Name</th>
+                      <th className="px-6 py-4">Total Documents</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50">
+                    {students
+                      .filter((s) => s.name.toLowerCase().includes(docSearch.toLowerCase()))
+                      .map((student) => {
+                        const docs = student.importedDocuments || [];
+                        const isExpanded = expandedStudentId === student.id;
+                        return (
+                          <React.Fragment key={student.id}>
+                            <tr className="hover:bg-slate-800/20 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-amber-500 font-bold shrink-0">
+                                    {student.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-white">{student.name}</p>
+                                    <p className="text-xs text-slate-500">{student.phone}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 font-mono">
+                                {docs.length} files
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
+                                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs font-bold inline-flex items-center space-x-2"
+                                >
+                                  <span>{isExpanded ? "Hide Docs" : "Review Docs"}</span>
+                                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </button>
+                              </td>
+                            </tr>
+                            
+                            {/* EXPANDED DOCUMENT VIEW */}
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan={4} className="px-6 py-6 bg-slate-950/40 border-t-0">
+                                  {docs.length === 0 ? (
+                                    <div className="text-center py-6 text-slate-500">
+                                      <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                      <p>This student has not imported any documents yet.</p>
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      {docs.map(doc => (
+                                        <div key={doc.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl relative">
+                                          <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[10px] font-bold uppercase tracking-wider ${
+                                            doc.status === "verified" ? "bg-emerald-500/20 text-emerald-400" :
+                                            doc.status === "rejected" ? "bg-rose-500/20 text-rose-400" :
+                                            doc.status === "manual_review" ? "bg-purple-500/20 text-purple-400" :
+                                            "bg-amber-500/20 text-amber-400"
+                                          }`}>
+                                            {doc.status.replace("_", " ")}
+                                          </div>
+                                          <div className="flex items-start space-x-3 mt-3">
+                                            <div className="p-2 rounded-lg bg-slate-800">
+                                              <FileText className="w-5 h-5 text-slate-400" />
+                                            </div>
+                                            <div>
+                                              <h4 className="text-white font-bold text-sm">{doc.type}</h4>
+                                              <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wider">{doc.source} • {new Date(doc.importDate).toLocaleDateString()}</p>
+                                              
+                                              <div className="mt-2 space-y-0.5">
+                                                {doc.documentNumber && <p className="text-xs text-slate-300 font-mono">No: {doc.documentNumber}</p>}
+                                                {doc.issuer && <p className="text-[10px] text-slate-500">Issuer: {doc.issuer}</p>}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Admin Actions */}
+                                          <div className="flex items-center justify-end space-x-2 mt-4 pt-3 border-t border-slate-800/50">
+                                            <button className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 tooltip-group relative" title="View Document">
+                                              <Eye className="w-4 h-4" />
+                                            </button>
+                                            {doc.status !== "verified" && (
+                                              <button onClick={() => handleVerifyImportedDocument(student.id, doc.id, "verified")} className="px-3 py-1.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold transition-colors">
+                                                Verify
+                                              </button>
+                                            )}
+                                            {doc.status !== "rejected" && (
+                                              <button onClick={() => handleVerifyImportedDocument(student.id, doc.id, "rejected")} className="px-3 py-1.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold transition-colors">
+                                                Reject
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Legacy Overall Status Update (for backwards compatibility if needed) */}
+                                  <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
+                                    <div>
+                                      <p className="text-xs text-slate-500">Overall Profile Document Status: <span className="font-bold text-slate-300 uppercase">{student.documentStatus}</span></p>
+                                    </div>
+                                    <div className="space-x-2">
+                                      {student.documentStatus !== "approved" && (
+                                        <button onClick={() => handleVerifyDocuments(student.id, "approved")} className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-900 text-xs font-bold transition-colors">
+                                          Approve Admission
+                                        </button>
+                                      )}
+                                      {student.documentStatus !== "rejected" && (
+                                        <button onClick={() => handleVerifyDocuments(student.id, "rejected")} className="px-4 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-slate-900 text-xs font-bold transition-colors">
+                                          Reject Admission
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    {students.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                          No student documents found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

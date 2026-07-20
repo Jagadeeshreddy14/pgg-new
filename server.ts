@@ -20,9 +20,43 @@ import {
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
 import firebaseConfig from "./firebase-applet-config.json";
 
 dotenv.config();
+
+// ==========================================
+// EMAIL SERVICE CONFIGURATION (Nodemailer)
+// ==========================================
+export const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_PORT === "465",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+export const sendEmail = async (to: string, subject: string, html: string) => {
+  try {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log(`[Email] Skipping email to ${to} (SMTP credentials not configured)`);
+      return false;
+    }
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || `"Admin" <${process.env.SMTP_USER}>`,
+      to,
+      subject,
+      html,
+    });
+    console.log(`[Email] Sent to ${to}: ${info.messageId}`);
+    return true;
+  } catch (error) {
+    console.error(`[Email] Failed to send to ${to}:`, error);
+    return false;
+  }
+};
 
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
@@ -493,8 +527,43 @@ app.put("/api/auth/change-password", authenticateToken, async (req: any, res) =>
 });
 
 app.post("/api/auth/reset-password-request", async (req, res) => {
-  // Mock request forgot password
-  res.json({ message: "Password reset link sent to registered email address." });
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const userRef = collection(db, "users");
+    const q = query(userRef, where("email", "==", email.toLowerCase()));
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      // Return success even if user not found to prevent email enumeration
+      return res.json({ message: "Password reset instructions sent if email exists." });
+    }
+
+    const userData = snap.docs[0].data();
+    
+    // Generate a temporary 8-character password
+    const tempPassword = Math.random().toString(36).slice(-8);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    // Update in database
+    await updateDoc(doc(db, "users", userData.id), { passwordHash });
+
+    // Send Email
+    await sendEmail(
+      userData.email,
+      "Your Temporary Password",
+      `<h3>Hello ${userData.name || userData.email},</h3>
+       <p>You requested a password reset. Here is your temporary password:</p>
+       <p style="font-size: 24px; font-weight: bold; padding: 10px; background: #f0f0f0; display: inline-block;">${tempPassword}</p>
+       <p>Please log in and change this password immediately from your profile settings.</p>
+       <br/><p>Thank you,<br/>Srisrinivasa Boys Hostel</p>`
+    );
+
+    res.json({ message: "Password reset instructions sent if email exists." });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // --- ROOMS & BEDS MANAGEMENT ---
@@ -686,6 +755,16 @@ app.post("/api/bookings", authenticateToken, async (req: any, res) => {
       createdAt: new Date().toISOString()
     });
 
+    // Send Email
+    await sendEmail(
+      req.user.email,
+      "Booking Request Received",
+      `<h3>Hello ${req.body.studentName || req.user.email},</h3>
+       <p>We have successfully received your booking request for <strong>Room ${rData.roomNumber}</strong>.</p>
+       <p>Your application is currently pending admin verification. We will notify you once your booking is approved.</p>
+       <br/><p>Thank you,<br/>Srisrinivasa Boys Hostel</p>`
+    );
+
     res.status(201).json(newBooking);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -805,6 +884,17 @@ app.put("/api/bookings/:id/status", authenticateToken, async (req: any, res) => 
       isRead: false,
       createdAt: new Date().toISOString()
     });
+
+    // Send Email
+    await sendEmail(
+      bData.studentEmail,
+      `Booking Update: ${status.toUpperCase()}`,
+      `<h3>Hello ${bData.studentName || bData.studentEmail},</h3>
+       <p>Your booking request for <strong>Room ${bData.roomNumber}</strong> has been updated to: <strong>${status.toUpperCase()}</strong>.</p>
+       ${notes ? `<p><strong>Admin Note:</strong> ${notes}</p>` : ""}
+       <p>Log in to your dashboard to view the latest updates.</p>
+       <br/><p>Thank you,<br/>Srisrinivasa Boys Hostel</p>`
+    );
 
     res.json({ message: "Booking updated successfully" });
   } catch (error: any) {
@@ -1114,7 +1204,49 @@ app.put("/api/students/:id/documents", authenticateToken, async (req: any, res) 
       createdAt: new Date().toISOString()
     });
 
+    // Send Email
+    try {
+      const uSnap = await getDoc(doc(db, "users", studentId));
+      if (uSnap.exists()) {
+        const uEmail = uSnap.data().email;
+        await sendEmail(
+          uEmail,
+          `Document Verification Update`,
+          `<h3>Hello ${uSnap.data().name || uEmail},</h3>
+           <p>Your uploaded identity documents have been marked as: <strong>${documentStatus.toUpperCase()}</strong>.</p>
+           ${documentNotes ? `<p><strong>Admin Note:</strong> ${documentNotes}</p>` : ""}
+           <p>Log in to your dashboard for more details.</p>
+           <br/><p>Thank you,<br/>Srisrinivasa Boys Hostel</p>`
+        );
+      }
+    } catch (e) {
+      console.error("Failed to send doc verification email", e);
+    }
+
     res.json({ message: "Student documents verified and updated" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.put("/api/users/:userId/documents/:docId/verify", authenticateToken, async (req: any, res) => {
+  try {
+    if (req.user.role !== "admin") return res.status(403).json({ error: "Unauthorized" });
+    
+    const { userId, docId } = req.params;
+    const { status } = req.body; 
+    
+    const userDoc = await getDoc(doc(db, "users", userId));
+    if (!userDoc.exists()) return res.status(404).json({ error: "User not found" });
+    
+    const currentDocs = userDoc.data().importedDocuments || [];
+    const updatedDocs = currentDocs.map((d: any) => 
+      d.id === docId ? { ...d, status } : d
+    );
+    
+    await updateDoc(doc(db, "users", userId), { importedDocuments: updatedDocs });
+    res.json({ message: "Document status updated" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -1254,6 +1386,26 @@ app.put("/api/complaints/:id", authenticateToken, async (req: any, res) => {
       isRead: false,
       createdAt: new Date().toISOString()
     });
+
+    // Send Email
+    try {
+      const uSnap = await getDoc(doc(db, "users", compData.studentId));
+      if (uSnap.exists()) {
+        const uEmail = uSnap.data().email;
+        await sendEmail(
+          uEmail,
+          `Complaint Update: ${compData.title}`,
+          `<h3>Hello ${uSnap.data().name || uEmail},</h3>
+           <p>Your complaint regarding <strong>${compData.title}</strong> has been updated.</p>
+           ${status ? `<p><strong>Status:</strong> ${status.toUpperCase()}</p>` : ""}
+           ${updateNote ? `<p><strong>Note:</strong> ${updateNote}</p>` : ""}
+           <p>Log in to your dashboard to view full details.</p>
+           <br/><p>Thank you,<br/>Srisrinivasa Boys Hostel</p>`
+        );
+      }
+    } catch (e) {
+      console.error("Failed to send complaint email", e);
+    }
 
     res.json({ message: "Complaint updated successfully" });
   } catch (error: any) {
@@ -2054,14 +2206,16 @@ app.get("/api/stats", authenticateToken, async (req: any, res) => {
 // ==========================================
 // VITE DEV SERVER & CLIENT HOOK
 // ==========================================
+import * as functions from "firebase-functions";
+
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && process.env.FIREBASE_CONFIG == null) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (process.env.FIREBASE_CONFIG == null) {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*all", (req, res) => {
@@ -2069,9 +2223,15 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Express custom server running on http://0.0.0.0:${PORT}`);
-  });
+  // Only listen to port if not running in Firebase Functions
+  if (process.env.FIREBASE_CONFIG == null) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Express custom server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+// Export as Firebase Function
+export const api = functions.https.onRequest(app);

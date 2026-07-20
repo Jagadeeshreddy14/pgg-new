@@ -1,4 +1,5 @@
-const API_BASE = "/api";
+// Use an external API URL if defined, otherwise fallback to relative "/api"
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export function getToken(): string | null {
   return localStorage.getItem("srinivasa_access_token");

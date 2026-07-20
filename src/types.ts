@@ -27,6 +27,18 @@ export interface HostelForm {
   emergencyContactRelation?: string;
 }
 
+export interface ImportedDocument {
+  id: string;
+  type: string;
+  documentNumber: string;
+  issuer: string;
+  issueDate: string;
+  status: "pending" | "verified" | "rejected" | "manual_review";
+  importDate: string;
+  documentUrl?: string;
+}
+
+
 export interface User {
   id: string;
   name: string;
@@ -45,12 +57,18 @@ export interface User {
   currentRoomNumber?: string;
   currentBedId?: string;
   currentBedNumber?: string;
+  
+  // Legacy document fields
   aadhaar?: string;
   pan?: string;
   collegeId?: string;
   parentIdProof?: string;
   documentStatus: "pending" | "approved" | "rejected" | "none";
+  documentSource?: "Manual" | "none";
   documentNotes?: string;
+  
+  importedDocuments?: ImportedDocument[];
+
   hostelForm?: HostelForm;
   createdAt: string;
 }
