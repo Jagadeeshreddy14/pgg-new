@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { initializeApp } from "firebase/app";
@@ -76,8 +77,13 @@ const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "srinivasa_refresh_toke
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Health check endpoint for Render
+app.get("/api/health", (req, res) => res.send("Backend is running"));
+
 
 // ==========================================
 // SEEDING DATABASE ON STARTUP
