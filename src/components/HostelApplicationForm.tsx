@@ -1334,6 +1334,18 @@ export default function HostelApplicationForm({
             Sri Srinivasa
           </div>
 
+          {/* Official Seal Rubber Stamp (Approved Only) */}
+          {user.documentStatus === "approved" && (
+            <div className="absolute top-6 right-6 md:top-8 md:right-8 -rotate-12 select-none pointer-events-none z-10 print:right-2 print:top-2">
+              <div className="border-4 border-double border-emerald-600/80 text-emerald-600 font-sans rounded-full w-24 h-24 flex flex-col items-center justify-center bg-white/95 shadow-md p-1 font-bold text-center leading-none">
+                <span className="text-[6px] tracking-widest font-black uppercase text-emerald-700">SRI SRINIVASA</span>
+                <span className="text-[11px] font-black tracking-wider uppercase text-emerald-600 my-0.5">APPROVED</span>
+                <span className="text-[6px] font-bold text-emerald-600/80 leading-none">★ ADMISSION ★</span>
+                <span className="text-[7px] text-emerald-700/60 font-mono mt-1 font-semibold">SEALED SECURE</span>
+              </div>
+            </div>
+          )}
+
           {/* Printed Header */}
           <div className="border-b-2 border-dashed border-[#1c2e4a]/30 pb-6 text-center space-y-2">
             <h2 className="text-2xl sm:text-3xl font-bold uppercase tracking-wider text-[#1e3a8a] font-sans">
@@ -1514,9 +1526,19 @@ export default function HostelApplicationForm({
 
             {/* Signatures block */}
             <div className="grid grid-cols-2 gap-12 pt-10 text-center font-sans text-xs">
-              <div className="space-y-4">
-                <div className="h-12 flex items-end justify-center">
-                  <span className="text-slate-400 italic">Signature stamp</span>
+              <div className="space-y-4 relative">
+                <div className="h-12 flex items-center justify-center relative">
+                  {user.documentStatus === "approved" ? (
+                    <div className="relative rotate-6 border-2 border-emerald-600/80 text-emerald-700 font-sans px-3 py-1 text-[11px] rounded uppercase tracking-wider bg-emerald-500/5 shadow-sm font-black flex flex-col items-center justify-center select-none">
+                      <span className="font-handwritten text-lg text-emerald-600 font-bold -mt-1 -mb-1 select-none leading-none">Ramesh Reddy</span>
+                      <div className="text-[7px] text-center font-bold tracking-widest text-emerald-600/70 border-t border-emerald-600/40 w-full pt-0.5">SRI SRINIVASA HOSTEL</div>
+                      <div className="text-[8px] text-emerald-700 font-extrabold tracking-widest leading-none mt-0.5">★ APPROVED ★</div>
+                    </div>
+                  ) : (
+                    <div className="border border-dashed border-slate-300 rounded px-3 py-1.5 text-[10px] text-slate-400 font-sans uppercase font-bold tracking-widest bg-slate-50">
+                      Awaiting Approval
+                    </div>
+                  )}
                 </div>
                 <div className="border-t border-[#1c2e4a] pt-1.5 font-bold uppercase tracking-wider text-slate-700 text-[10px]">
                   Sri Srinivasa Hostel Warden Signature
