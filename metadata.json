@@ -1,0 +1,6 @@
+{
+  "name": "Sri Srinivasa Boys Hostel",
+  "description": "Premium shared PG & Hostel accommodation management system with interactive role-based access, UPI payments tracking, automated rent rolls, and AI virtual wardens.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
